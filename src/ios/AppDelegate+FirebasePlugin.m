@@ -5,12 +5,10 @@
 
 #if defined(__IPHONE_10_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
 @import UserNotifications;
-#endif
 
 // Implement UNUserNotificationCenterDelegate to receive display notification via APNS for devices
 // running iOS 10 and above. Implement FIRMessagingDelegate to receive data message via FCM for
 // devices running iOS 10 and above.
-#if defined(__IPHONE_10_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
 @interface AppDelegate () <UNUserNotificationCenterDelegate, FIRMessagingDelegate>
 @end
 #endif
@@ -20,13 +18,7 @@
 
 @implementation AppDelegate (FirebasePlugin)
 
-@dynamic delegate;
-
-+ (void)load {
-    Method original = class_getInstanceMethod(self, @selector(application:didFinishLaunchingWithOptions:));
-    Method swizzled = class_getInstanceMethod(self, @selector(application:swizzledDidFinishLaunchingWithOptions:));
-    method_exchangeImplementations(original, swizzled);
-}
+#if defined(__IPHONE_10_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
 
 - (void)setDelegate:(id)delegate {
     objc_setAssociatedObject(self, kDelegateKey, delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -34,6 +26,14 @@
 
 - (id)delegate {
     return objc_getAssociatedObject(self, kDelegateKey);
+}
+
+#endif
+
++ (void)load {
+    Method original = class_getInstanceMethod(self, @selector(application:didFinishLaunchingWithOptions:));
+    Method swizzled = class_getInstanceMethod(self, @selector(application:swizzledDidFinishLaunchingWithOptions:));
+    method_exchangeImplementations(original, swizzled);
 }
 
 - (void)setApplicationInBackground:(NSNumber *)applicationInBackground {
@@ -47,21 +47,23 @@
 - (BOOL)application:(UIApplication *)application swizzledDidFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     [self application:application swizzledDidFinishLaunchingWithOptions:launchOptions];
 
-    if(![FIRApp defaultApp]) {
+    if (![FIRApp defaultApp]) {
         [FIRApp configure];
     }
 
+    // [START set_messaging_delegate]
+    [FIRMessaging messaging].delegate = self;
+    // [END set_messaging_delegate]
+#if defined(__IPHONE_10_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
+    self.delegate = [UNUserNotificationCenter currentNotificationCenter].delegate;
+    [UNUserNotificationCenter currentNotificationCenter].delegate = self;
+#endif
+        
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(tokenRefreshNotification:)
                                                  name:kFIRInstanceIDTokenRefreshNotification object:nil];
-
+    
     self.applicationInBackground = @(YES);
-
-    #if defined(__IPHONE_10_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
-        // For iOS 10 display notification (sent via APNS)
-        self.delegate = [UNUserNotificationCenter currentNotificationCenter].delegate;
-        [UNUserNotificationCenter currentNotificationCenter].delegate = self;
-    #endif
-
+    
     return YES;
 }
 
@@ -85,7 +87,6 @@
 
     // Connect to FCM since connection may have failed when attempted before having a token.
     [self connectToFcm];
-
     [FirebasePlugin.firebasePlugin sendToken:refreshedToken];
 }
 
@@ -121,14 +122,29 @@
 
     // Pring full message.
     NSLog(@"%@", mutableUserInfo);
-
     [FirebasePlugin.firebasePlugin sendNotification:mutableUserInfo];
 }
 
+// [START ios_10_data_message]
+// Receive data messages on iOS 10+ directly from FCM (bypassing APNs) when the app is in the foreground.
+// To enable direct data messages, you can set [Messaging messaging].shouldEstablishDirectChannel to YES.
+- (void)messaging:(FIRMessaging *)messaging didReceiveMessage:(FIRMessagingRemoteMessage *)remoteMessage {
+    NSLog(@"Received data message: %@", remoteMessage.appData);
+}
+
+// [END ios_10_data_message]
 #if defined(__IPHONE_10_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_10_0
 - (void)userNotificationCenter:(UNUserNotificationCenter *)center
        willPresentNotification:(UNNotification *)notification
          withCompletionHandler:(void (^)(UNNotificationPresentationOptions))completionHandler {
+    
+    [self.delegate userNotificationCenter:center
+              willPresentNotification:notification
+                withCompletionHandler:completionHandler];
+
+    if (![notification.request.trigger isKindOfClass:UNPushNotificationTrigger.class])
+        return;
+    
     NSDictionary *mutableUserInfo = [notification.request.content.userInfo mutableCopy];
 
     [mutableUserInfo setValue:self.applicationInBackground forKey:@"tap"];
@@ -136,29 +152,26 @@
     // Print full message.
     NSLog(@"%@", mutableUserInfo);
 
-    if (![notification.request.trigger isKindOfClass:UNPushNotificationTrigger.class]) {
-        [self.delegate userNotificationCenter:center willPresentNotification:notification withCompletionHandler:completionHandler];
-        return;
-    }
-
     [FirebasePlugin.firebasePlugin sendNotification:mutableUserInfo];
 }
 
-// Handle notification messages after display notification is tapped by the user.
-- (void)userNotificationCenter:(UNUserNotificationCenter *)center
-didReceiveNotificationResponse:(UNNotificationResponse *)response
-         withCompletionHandler:(void(^)(void))completionHandler {
+- (void) userNotificationCenter:(UNUserNotificationCenter *)center
+ didReceiveNotificationResponse:(UNNotificationResponse *)response
+          withCompletionHandler:(void (^)(void))completionHandler
+{
+    [self.delegate userNotificationCenter:center
+       didReceiveNotificationResponse:response
+                withCompletionHandler:completionHandler];
+
+    if (![response.notification.request.trigger isKindOfClass:UNPushNotificationTrigger.class])
+        return;
+    
     NSDictionary *mutableUserInfo = [response.notification.request.content.userInfo mutableCopy];
 
     [mutableUserInfo setValue:@YES forKey:@"tap"];
 
     // Print full message.
     NSLog(@"Response %@", mutableUserInfo);
-
-    if (![response.notification.request.trigger isKindOfClass:UNPushNotificationTrigger.class]) {
-        [self.delegate userNotificationCenter:center didReceiveNotificationResponse:response withCompletionHandler:completionHandler];
-        return;
-    }
 
     [FirebasePlugin.firebasePlugin sendNotification:mutableUserInfo];
 

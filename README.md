@@ -17,20 +17,26 @@ Paypal: https://paypal.me/arnesson
 
 Thank you for your support!
 
+## Supported Cordova Versions
+- cordova: `>= 6`
+- cordova-android: `>= 6.3`
+- cordova-ios: `>= 4`
+
 ## Installation
-See npm package for versions - https://www.npmjs.com/package/cordova-plugin-firebase
-
-Great installation and setup guide by Medium.com - [https://medium.com/@felipepucinelli/how-to-add-push...](https://medium.com/@felipepucinelli/how-to-add-push-notifications-in-your-cordova-application-using-firebase-69fac067e821)
-
 Install the plugin by adding it your project's config.xml:
 ```
-<plugin name="cordova-plugin-firebase" spec="0.1.25" />
+<plugin name="cordova-plugin-firebase" spec="^1.0.0" />
 ```
 or by running:
 ```
-cordova plugin add cordova-plugin-firebase@0.1.25 --save
+cordova plugin add cordova-plugin-firebase --save
 ```
-Download your Firebase configuration files, GoogleService-Info.plist for ios and google-services.json for android, and place them in the root folder of your cordova project:
+
+### Guides
+Great installation and setup guide by Medium.com - [https://medium.com/@felipepucinelli/how-to-add-push...](https://medium.com/@felipepucinelli/how-to-add-push-notifications-in-your-cordova-application-using-firebase-69fac067e821)
+
+### Setup
+Download your Firebase configuration files, GoogleService-Info.plist for ios and google-services.json for android, and place them in the root folder of your cordova project.  Check out this [firebase article](https://support.google.com/firebase/answer/7015592) for details on how to download the files.
 
 ```
 - My Project/
@@ -43,37 +49,35 @@ Download your Firebase configuration files, GoogleService-Info.plist for ios and
     ...
 ```
 
-See https://support.google.com/firebase/answer/7015592 for details how to download the files from firebase.
+#### IMPORTANT NOTES
+- This plugin uses a hook (after prepare) that copies the configuration files to the right place, namely `platforms/ios/\<My Project\>/Resources` for ios and `platforms/android` for android.
+- Firebase SDK requires the configuration files to be present and valid, otherwise your app will crash on boot or Firebase features won't work.
 
-This plugin uses a hook (after prepare) that copies the configuration files to the right place, namely platforms/ios/\<My Project\>/Resources for ios and platforms/android for android.
+### PhoneGap Build
+Hooks do not work with PhoneGap Build. This means you will have to manually make sure the configuration files are included. One way to do that is to make a private fork of this plugin and replace the placeholder config files (see `src/ios` and `src/android`) with your actual ones, as well as hard coding your app id and api key in `plugin.xml`.
 
-**Note that the Firebase SDK requires the configuration files to be present and valid, otherwise your app will crash on boot or Firebase features won't work.**
-
-### Notes about PhoneGap Build
-
-Hooks does not work with PhoneGap Build. This means you will have to manually make sure the configuration files are included. One way to do that is to make a private fork of this plugin and replace the placeholder config files (see src/ios and src/android) with your actual ones, as well as hard coding your app id and api key in plugin.xml.
-
-
+### Google Play Services
+Your build may fail if you are installing multiple plugins that use Google Play Services.  This is caused by the plugins installing different versions of the Google Play Services library.  This can be resolved by installing [cordova-android-play-services-gradle-release](https://github.com/dpa99c/cordova-android-play-services-gradle-release).
 
 ## Google Tag Manager
 ### Android
-Download your container-config json file from Tag Manager and add a resource-file node in your config.xml.
+Download your container-config json file from Tag Manager and add a resource-file node in your `config.xml`.
 ```
 ....
 <platform name="android">
-        <content src="index.html" />
-        <resource-file src="GTM-5MFXXXX.json" target="assets/containers/GTM-5MFXXXX.json" />
-        ...
+    <content src="index.html" />
+    <resource-file src="GTM-5MFXXXX.json" target="assets/containers/GTM-5MFXXXX.json" />
+    ...
 ```
 
 ## Changing Notification Icon
-The plugin will use notification_icon from drawable resources if it exists, otherwise the default app icon will is used.
+The plugin will use notification_icon from drawable resources if it exists, otherwise the default app icon is used.
 To set a big icon and small icon for notifications, define them through drawable nodes.  
-Create the required styles.xml files and add the icons to the  
+Create the required `styles.xml` files and add the icons to the  
 `<projectroot>/res/native/android/res/<drawable-DPI>` folders.  
 
-The example below uses a png named "ic_silhouette.png", the app Icon (@mipmap/icon) and sets a base theme.  
-From android version 21 (Lollipop) notifications were changed, needing a seperate setting.  
+The example below uses a png named `ic_silhouette.png`, the app Icon (@mipmap/icon) and sets a base theme.  
+From android version 21 (Lollipop) notifications were changed, needing a separate setting.  
 If you only target Lollipop and above, you don't need to setup both.  
 Thankfully using the version dependant asset selections, we can make one build/apk supporting all target platforms.  
 `<projectroot>/res/native/android/res/values/styles.xml`
@@ -170,13 +174,13 @@ Notification icon on Android:
 
 ### grantPermission (iOS only)
 
-Grant permission to recieve push notifications (will trigger prompt):
+Grant permission to receive push notifications (will trigger prompt):
 ```
 window.FirebasePlugin.grantPermission();
 ```
 ### hasPermission
 
-Check permission to recieve push notifications:
+Check permission to receive push notifications:
 ```
 window.FirebasePlugin.hasPermission(function(data){
     console.log(data.isEnabled);
@@ -202,6 +206,13 @@ Get icon badge number:
 window.FirebasePlugin.getBadgeNumber(function(n) {
     console.log(n);
 });
+```
+
+### clearAllNotifications
+
+Clear all pending notifications from the drawer:
+```
+window.FirebasePlugin.clearAllNotifications();
 ```
 
 ### subscribe
@@ -253,17 +264,40 @@ Set a user property for use in Analytics:
 window.FirebasePlugin.setUserProperty("name", "value");
 ```
 
-### verifyPhoneNumber (Android only)
+### verifyPhoneNumber
 
-Request a verificationId and send a SMS with a verificationCode.
-Use them to construct a credenial to sign in the user (in your app).
-https://firebase.google.com/docs/auth/android/phone-auth
-https://firebase.google.com/docs/reference/js/firebase.auth.Auth#signInWithCredential
+Request a verification ID and send a SMS with a verification code. Use them to construct a credential to sign in the user (in your app).
+- https://firebase.google.com/docs/auth/android/phone-auth
+- https://firebase.google.com/docs/reference/js/firebase.auth.Auth#signInWithCredential
+- https://firebase.google.com/docs/reference/js/firebase.User#linkWithCredential
 
-NOTE: To use this auth you need to configure your app SHA hash in the android app configuration on firebase console.
-See https://developers.google.com/android/guides/client-auth to know how to get SHA app hash.
+**NOTE: This will only work on physical devices.**
 
-NOTE: This will only works on physical devices.
+iOS will return: credential (string)
+Android will return: 
+credential.verificationId (object and with key verificationId)
+credential.instantVerification (boolean)
+
+You need to use device plugin in order to access the right key. 
+
+IMPORTANT NOTE: Android supports auto-verify and instant device verification. Therefore in that case it doesn't make sense to ask for an sms code as you won't receive one. Also, **verificationId** will be *false* in this case. In order to sign the user in you need to check **credential.instantVerification**, if it's true, skip the SMS Code entry, call your backend server (sorry, it is the only way to succeed with this plugin) and pass the phone number as param to identify the user (via ajax for example, using any endpoint to your backend).
+
+When using node.js Firebase Admin-SDK, follow this tutorial:
+- https://firebase.google.com/docs/auth/admin/create-custom-tokens
+
+Pass back your custom generated token and call 
+```js 
+firebase.auth().signInWithCustomToken(customTokenFromYourServer);
+```
+instead of 
+```
+firebase.auth().signInWithCredential(credential)
+```
+**YOU HAVE TO COVER THIS PROCESS, OR YOU WILL HAVE ABOUT 5% OF USERS STICKING ON YOUR SCREEN, NOT RECEIVING ANYTHING**
+If this process is too complex for you, use this awesome plugin
+- https://github.com/chemerisuk/cordova-plugin-firebase-authentication
+
+It's not perfect but it fits for the most use cases and doesn't require calling your endpoint, as it has native phone auth support.
 
 ```
 window.FirebasePlugin.verifyPhoneNumber(number, timeOutDuration, function(credential) {
@@ -274,12 +308,28 @@ window.FirebasePlugin.verifyPhoneNumber(number, timeOutDuration, function(creden
 
     var verificationId = credential.verificationId;
 
-    var signInCredential = firebase.auth.PhoneAuthProvider.credential(verificationId, code);
-    firebase.auth().signInWithCredential(signInCredential);
+    var credential = firebase.auth.PhoneAuthProvider.credential(verificationId, code);
+
+    // sign in with the credential
+    firebase.auth().signInWithCredential(credential);
+    
+    // call if credential.instantVerification was true (android only)
+    firebase.auth().signInWithCustomToken(customTokenFromYourServer);
+
+    // OR link to an account
+    firebase.auth().currentUser.linkWithCredential(credential)
 }, function(error) {
     console.error(error);
 });
 ```
+
+
+#### Android
+To use this auth you need to configure your app SHA hash in the android app configuration in the firebase console.
+See https://developers.google.com/android/guides/client-auth to know how to get SHA app hash.
+
+#### iOS
+Setup your push notifications first, and verify that they are arriving on your physical device before you test this method. Use the APNs auth key to generate the .p8 file and upload it to firebase.  When you call this method, FCM sends a silent push to the device to verify it.
 
 ### fetch
 
@@ -436,48 +486,4 @@ Enable/disable analytics collection
 window.FirebasePlugin.setAnalyticsCollectionEnabled(true); // Enables analytics collection
 
 window.FirebasePlugin.setAnalyticsCollectionEnabled(false); // Disables analytics collection
-```
-
-### Phone Authentication
-**BASED ON THE CONTRIBUTIONS OF**
-IOS
-https://github.com/silverio/cordova-plugin-firebase
-
-ANDROID
-https://github.com/apptum/cordova-plugin-firebase
-
-**((((IOS))): SETUP YOUR PUSH NOTIFICATIONS FIRST, AND VERIFY THAT THEY ARE ARRIVING TO YOUR PHYSICAL DEVICE BEFORE YOU TEST THIS METHOD. USE THE APNS AUTH KEY TO GENERATE THE .P8 FILE AND UPLOAD IT TO FIREBASE.
-WHEN YOU CALL THIS METHOD, FCM SENDS A SILENT PUSH TO THE DEVICE TO VERIFY IT.**
-
-This method sends an SMS to the user with the SMS_code and gets the verification id you need to continue the sign in process, with the Firebase JS SDK.
-
-```
-window.FirebasePlugin.getVerificationID("+573123456789",function(id) {
-                console.log("verificationID: "+id);
-
-            }, function(error) {             
-                console.error(error);
-            });
-```
-
-Using Ionic2?
-```
-  (<any>window).FirebasePlugin.getVerificationID("+573123456789", id => {
-          console.log("verificationID: " + id);
-          this.verificationId = id;
-        }, error => {
-          console.log("error: " + error);
-        });
-```
-Get the intermediate AuthCredential object
-```
-var credential = firebase.auth.PhoneAuthProvider.credential(verificationId, SMS_code);
-```
-Then, you can sign in the user with the credential:
-```
-firebase.auth().signInWithCredential(credential);
-```
-Or link to an account
-```
-firebase.auth().currentUser.linkWithCredential(credential)
 ```
